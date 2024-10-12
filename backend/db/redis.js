@@ -4,7 +4,7 @@ console.log("try to connect to redis")
 
 
 const client = redis.createClient({
-    password: 'WpwSnG1hDc9vh9EHFpdr9GaDmU1e2kam',
+    password: process.env.REDIS_PASSWORD,
     socket: {
         host: 'redis-14186.c62.us-east-1-4.ec2.redns.redis-cloud.com',
         port: 14186
