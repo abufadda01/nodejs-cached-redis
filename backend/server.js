@@ -19,8 +19,10 @@ app.use(cors())
 app.post("/api/users/create" , async (req , res) => {
     const {name , email} = req.body
     try {
+        const cachedKey = process.env.cachedKey
         const newUser = new User({email , name})
         await newUser.save()
+        await redis.del(cachedKey) // to delete the cached data version after add a new user to keep the data synced
         res.status(201).json(newUser)
     } catch (error) {
         res.status(400).json({msg : `Error in creating new user : ${error}` })
@@ -28,10 +30,29 @@ app.post("/api/users/create" , async (req , res) => {
 })
 
 
+
 app.get("/api/users/list" , async (req , res) => {
     try {
+
+        const cachedKey = process.env.cachedKey
+        const cachedUsers = await redis.get(cachedKey)
+
+        // if we have cached version of the data we return them as response and don't make the mongoDB call
+        if(cachedUsers){ 
+            console.log("cach hit")
+            return res.status(200).json({users : JSON.parse(cachedUsers)}) // we parsed them because they saved as string
+        }
+
         const users = await User.find()
+
+        // since we reach here that means we don't have a cached version of the data so we create one for next DB fetch
+        if(users.length > 0){
+            await redis.set(cachedKey , JSON.stringify(users) , "EX" , 3600) // to be expired after 1 hour
+            console.log("cach miss")
+        }
+        
         res.status(200).json(users)
+    
     } catch (error) {
         res.status(400).json({msg : `Error in getting all users : ${error}` })
     }
